@@ -8,3 +8,9 @@ target_include_directories(${PROJECT_NAME} INTERFACE
     $<INSTALL_INTERFACE:include>
 )
 
+option(DCVB_UTILS_BUILD_TESTS "Build tests for dcvb-utils" OFF )
+if (DCVB_UTILS_BUILD_TESTS)
+  enable_testing()
+  add_subdirectory(tests)
+endif()
+
