@@ -41,6 +41,9 @@ struct None {};
 template <typename T>
 class Optional {
  public:
+  using ValueType = T;
+  using value_type = T;  // Alias for compatibility
+
   /**
    * @brief Constructs an Optional with a value (Some).
    * @param someRes The value to store.

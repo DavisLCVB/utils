@@ -46,6 +46,11 @@ struct Ok<void> {};
 template <typename T, typename E>
 class Result {
  public:
+  using ValueType = T;
+  using value_type = T;  // Alias for compatibility
+  using ErrorType = E;
+  using error_type = E;  // Alias for compatibility
+
   // Constructor for Ok variant
   Result(Ok<T>&& okRes)  // NOLINT
       : value_(std::in_place_index<0>, std::move(okRes.value)) {}
@@ -461,6 +466,11 @@ class Result {
 template <typename E>
 class Result<void, E> {
  public:
+  using ValueType = void;
+  using value_type = void;  // Alias for compatibility
+  using ErrorType = E;
+  using error_type = E;  // Alias for compatibility
+
   // Constructor for Ok<void> variant
   constexpr Result(Ok<void>&& /*unused*/)  // NOLINT
       : value_(std::in_place_index<0>, std::monostate{}) {}
