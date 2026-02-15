@@ -19,38 +19,80 @@ struct Ok;
 }  // namespace dcvb
 
 namespace dcvb {
+/**
+ * @brief A struct that holds a value for the Optional type.
+ * @tparam T The type of the value.
+ */
 template <typename T>
   requires(!std::is_void_v<T>)
 struct Some {
   T value;  // Value contained in the Some variant
 };
 
+/**
+ * @brief A struct that represents the absence of a value for the Optional type.
+ */
 struct None {};
 
+/**
+ * @brief A type that represents an optional value.
+ * @tparam T The type of the value.
+ */
 template <typename T>
 class Optional {
  public:
+  /**
+   * @brief Constructs an Optional with a value (Some).
+   * @param someRes The value to store.
+   */
   Optional(Some<T>&& someRes)  // NOLINT
       : value_(std::in_place_index<1>, std::move(someRes.value)) {}
 
+  /**
+   * @brief Constructs an Optional with a value (Some) from a const reference.
+   * @param someRes The value to store.
+   */
   Optional(const Some<T>& someRes)
       : value_(std::in_place_index<1>, someRes.value) {}
 
+  /**
+   * @brief Constructs an Optional in the None state.
+   */
   Optional(None&& /*unused*/)  // NOLINT
       : value_(std::in_place_index<0>, std::monostate{}) {}
 
+  /**
+   * @brief Default constructor, creates an Optional in the None state.
+   */
   Optional() : value_(std::in_place_index<0>, std::monostate{}) {}
 
+  /**
+   * @brief Checks if the Optional contains a value.
+   * @return true if it is Some, false if it is None.
+   */
   [[nodiscard]] constexpr auto isSome() const noexcept -> bool {
     return value_.index() == 1;
   }
 
+  /**
+   * @brief Checks if the Optional does not contain a value.
+   * @return true if it is None, false if it is Some.
+   */
   [[nodiscard]] constexpr auto isNone() const noexcept -> bool {
     return value_.index() == 0;
   }
 
+  /**
+   * @brief Implicit conversion to bool for easy checking of Some state.
+   * @return true if it is Some, false if it is None.
+   */
   [[nodiscard]] constexpr operator bool() const noexcept { return isSome(); }
 
+  /**
+   * @brief Unwraps the Optional to get the value. Throws if it's None.
+   * @return The value if it is Some.
+   * @throws std::runtime_error if it is None.
+   */
   [[nodiscard]] auto unwrap() & -> T& {
     if (isNone()) {
       throw std::runtime_error(
@@ -59,6 +101,11 @@ class Optional {
     return std::get<1>(value_);
   }
 
+  /**
+   * @brief Unwraps the Optional to get the value. Throws if it's None.
+   * @return The value if it is Some.
+   * @throws std::runtime_error if it is None.
+   */
   [[nodiscard]] auto unwrap() && -> T&& {
     if (isNone()) {
       throw std::runtime_error(
@@ -67,6 +114,11 @@ class Optional {
     return std::get<1>(std::move(value_));
   }
 
+  /**
+   * @brief Unwraps the Optional to get the value. Throws if it's None.
+   * @return The value if it is Some.
+   * @throws std::runtime_error if it is None.
+   */
   [[nodiscard]] auto unwrap() const& -> const T& {
     if (isNone()) {
       throw std::runtime_error(
@@ -75,6 +127,12 @@ class Optional {
     return std::get<1>(value_);
   }
 
+  /**
+   * @brief Returns the value if it's Some, or a provided default value if it's None.
+   * @tparam U The type of the default value, which must be convertible to T.
+   * @param defaultValue The value to return if this is None.
+   * @return The value or the default value.
+   */
   template <typename U>
     requires std::convertible_to<U, T>
   [[nodiscard]] auto valueOr(U&& defaultValue) const& -> T {
@@ -84,6 +142,12 @@ class Optional {
     return static_cast<T>(std::forward<U>(defaultValue));
   }
 
+  /**
+   * @brief Returns the value if it's Some, or a provided default value if it's None.
+   * @tparam U The type of the default value, which must be convertible to T.
+   * @param defaultValue The value to return if this is None.
+   * @return The value or the default value.
+   */
   template <typename U>
     requires std::convertible_to<U, T>
   [[nodiscard]] auto valueOr(U&& defaultValue) && -> T {
@@ -93,6 +157,12 @@ class Optional {
     return static_cast<T>(std::forward<U>(defaultValue));
   }
 
+  /**
+   * @brief Maps the value using the provided function if it's Some.
+   * @tparam F The type of the mapping function.
+   * @param func The mapping function.
+   * @return A new Optional containing the mapped value or None.
+   */
   template <typename F>
   [[nodiscard]] auto map(F&& func) const& {
     using U = std::invoke_result_t<F, const T&>;
@@ -109,6 +179,12 @@ class Optional {
     return RetType(None{});
   }
 
+  /**
+   * @brief Maps the value using the provided function if it's Some.
+   * @tparam F The type of the mapping function.
+   * @param func The mapping function.
+   * @return A new Optional containing the mapped value or None.
+   */
   template <typename F>
   [[nodiscard]] auto map(F&& func) & {
     using U = std::invoke_result_t<F, T&>;
@@ -122,6 +198,12 @@ class Optional {
     return RetType(None{});
   }
 
+  /**
+   * @brief Maps the value using the provided function if it's Some.
+   * @tparam F The type of the mapping function.
+   * @param func The mapping function.
+   * @return A new Optional containing the mapped value or None.
+   */
   template <typename F>
   [[nodiscard]] auto map(F&& func) && {
     using U = std::invoke_result_t<F, T&&>;
@@ -135,6 +217,12 @@ class Optional {
     return RetType(None{});
   }
 
+  /**
+   * @brief Chains another Optional-returning function to be called if this is Some.
+   * @tparam F The type of the chaining function.
+   * @param func The chaining function.
+   * @return The Result of the function or None.
+   */
   template <typename F>
   [[nodiscard]] auto andThen(F&& func) const& {
     using RetType = std::invoke_result_t<F, const T&>;
@@ -144,6 +232,12 @@ class Optional {
     return RetType(None{});
   }
 
+  /**
+   * @brief Chains another Optional-returning function to be called if this is Some.
+   * @tparam F The type of the chaining function.
+   * @param func The chaining function.
+   * @return The Result of the function or None.
+   */
   template <typename F>
   [[nodiscard]] auto andThen(F&& func) && {
     using RetType = std::invoke_result_t<F, T&&>;
@@ -153,6 +247,12 @@ class Optional {
     return RetType(None{});
   }
 
+  /**
+   * @brief Chains another Optional-returning function to be called if this is Some.
+   * @tparam F The type of the chaining function.
+   * @param func The chaining function.
+   * @return The Result of the function or None.
+   */
   template <typename F>
   [[nodiscard]] auto andThen(F&& func) & {
     using RetType = std::invoke_result_t<F, T&>;
@@ -162,6 +262,12 @@ class Optional {
     return RetType(None{});
   }
 
+  /**
+   * @brief Executes a provided function with the value if it's Some.
+   * @tparam F The type of the function.
+   * @param func The function to execute.
+   * @return A reference to this Optional for chaining.
+   */
   template <typename F>
   auto inspect(F&& func) const& -> const Optional& {
     if (isSome()) {
@@ -170,6 +276,12 @@ class Optional {
     return *this;
   }
 
+  /**
+   * @brief Executes a provided function with the value if it's Some.
+   * @tparam F The type of the function.
+   * @param func The function to execute.
+   * @return A reference to this Optional for chaining.
+   */
   template <typename F>
   auto inspect(F&& func) & -> Optional& {
     if (isSome()) {
@@ -178,6 +290,12 @@ class Optional {
     return *this;
   }
 
+  /**
+   * @brief Executes a provided function with the value if it's Some.
+   * @tparam F The type of the function.
+   * @param func The function to execute.
+   * @return A reference to this Optional for chaining.
+   */
   template <typename F>
   auto inspect(F&& func) && -> Optional&& {
     if (isSome()) {
@@ -187,6 +305,10 @@ class Optional {
   }
 
 #ifdef __cpp_lib_optional
+  /**
+   * @brief Converts this Optional to a std::optional.
+   * @return A std::optional containing the value if it's Some, or std::nullopt.
+   */
   [[nodiscard]] auto asStdOptional() const& -> std::optional<T> {
     if (isSome()) {
       return std::optional<T>{std::get<1>(value_)};
@@ -194,6 +316,10 @@ class Optional {
     return std::nullopt;
   }
 
+  /**
+   * @brief Converts this Optional to a std::optional.
+   * @return A std::optional containing the value if it's Some, or std::nullopt.
+   */
   [[nodiscard]] auto asStdOptional() && -> std::optional<T> {
     if (isSome()) {
       return std::optional<T>{std::get<1>(std::move(value_))};
@@ -202,6 +328,12 @@ class Optional {
   }
 #endif
 
+  /**
+   * @brief Converts this Optional to a Result.
+   * @tparam E The error type for the Result.
+   * @param err The error value to use if this is None.
+   * @return A Result containing the value if it's Some, or the provided error.
+   */
   template <typename E>
   [[nodiscard]] auto okOr(E&& err) const& -> Result<T, E> {
     if (isSome()) {
@@ -210,6 +342,12 @@ class Optional {
     return Result<T, E>(Err<E>{std::forward<E>(err)});
   }
 
+  /**
+   * @brief Converts this Optional to a Result.
+   * @tparam E The error type for the Result.
+   * @param err The error value to use if this is None.
+   * @return A Result containing the value if it's Some, or the provided error.
+   */
   template <typename E>
   [[nodiscard]] auto okOr(E&& err) && -> Result<T, E> {
     if (isSome()) {
@@ -219,15 +357,27 @@ class Optional {
   }
 
  private:
-  std::variant<std::monostate, T> value_;
+  std::variant<std::monostate, T>
+      value_;  // Variant to hold either None (monostate) or a value
 };
 
+/**
+ * @brief Helper function to create an Optional containing a value.
+ * @tparam T The type of the value.
+ * @param value The value to store.
+ * @return An Optional containing the value.
+ */
 template <typename T>
 [[nodiscard]] auto some(T&& value) -> Optional<std::decay_t<T>> {
   return Optional<std::decay_t<T>>(
       Some<std::decay_t<T>>{std::forward<T>(value)});
 }
 
+/**
+ * @brief Helper function to create an empty Optional.
+ * @tparam T The type of the value.
+ * @return An empty Optional.
+ */
 template <typename T>
 [[nodiscard]] auto none() -> Optional<T> {
   return Optional<T>(None{});
