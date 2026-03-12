@@ -20,7 +20,7 @@ include(FetchContent)
 FetchContent_Declare(
     dcvb-utils
     GIT_REPOSITORY https://github.com/DavisLCVB/utils.git
-    GIT_TAG v1.0.0
+    GIT_TAG v1.2.0
 )
 
 FetchContent_MakeAvailable(dcvb-utils)
@@ -50,4 +50,3 @@ target_link_libraries(your_target PRIVATE dcvb::utils)
 
 - C++20 compatible compiler (uses `std::variant`, `std::source_location`, `std::format`, etc.)
 - CMake 3.20 or higher
-

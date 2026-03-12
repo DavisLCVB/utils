@@ -19,12 +19,13 @@ namespace dcvb {
 /**
  * @brief Base class for error domains, which categorize error codes.
  */
-struct ErrorDomain {
+class ErrorDomain {
+ public:
   ErrorDomain() = default;
-  ErrorDomain(const ErrorDomain&) = default;
-  ErrorDomain(ErrorDomain&&) = default;
-  auto operator=(const ErrorDomain&) -> ErrorDomain& = default;
-  auto operator=(ErrorDomain&&) -> ErrorDomain& = default;
+  ErrorDomain(const ErrorDomain&) = delete;
+  ErrorDomain(ErrorDomain&&) = delete;
+  auto operator=(const ErrorDomain&) -> ErrorDomain& = delete;
+  auto operator=(ErrorDomain&&) -> ErrorDomain& = delete;
   virtual ~ErrorDomain() = default;
 
   /**
