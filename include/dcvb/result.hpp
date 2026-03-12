@@ -430,6 +430,30 @@ class Result {
     return std::get<0>(value_);
   }
 
+  /**
+   * @brief Extracts the error to propagate it to another Result type. Throws if Ok.
+   * @return An Err<E> struct that implicitly converts to any Result<U, E>.
+   */
+  [[nodiscard]] auto propagate() const& -> Err<E> {
+    if (isOk()) {
+      throw std::runtime_error(
+          "dcvb::Result - Called propagate on an Ok value");
+    }
+    return Err<E>{std::get<1>(value_)};
+  }
+
+  /**
+   * @brief Extracts the error to propagate it to another Result type. Throws if Ok.
+   * @return An Err<E> struct that implicitly converts to any Result<U, E>.
+   */
+  [[nodiscard]] auto propagate() && -> Err<E> {
+    if (isOk()) {
+      throw std::runtime_error(
+          "dcvb::Result - Called propagate on an Ok value");
+    }
+    return Err<E>{std::get<1>(std::move(value_))};
+  }
+
 #ifdef __cpp_lib_expected
   /**
    * @brief Converts this Result into a std::expected, where Ok maps to a value and Err maps to an error.

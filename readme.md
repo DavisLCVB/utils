@@ -20,7 +20,7 @@ include(FetchContent)
 FetchContent_Declare(
     dcvb-utils
     GIT_REPOSITORY https://github.com/DavisLCVB/utils.git
-    GIT_TAG v1.2.0
+    GIT_TAG v1.1.1
 )
 
 FetchContent_MakeAvailable(dcvb-utils)
