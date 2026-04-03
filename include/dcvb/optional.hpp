@@ -314,6 +314,74 @@ class Optional {
   }
 
   /**
+   * @brief Applies one of two functions depending on whether this Optional is Some or None.
+   *
+   * Both functions must return the same type. Use this to collapse an Optional
+   * into a single value without checking isSome() manually.
+   *
+   * @tparam SomeFn Callable invocable with T& (lvalue value).
+   * @tparam NoneFn Callable invocable with no arguments.
+   * @return The return value of whichever function was invoked.
+   */
+  template <typename SomeFn, typename NoneFn>
+  auto match(SomeFn&& someFn, NoneFn&& noneFn) & {
+    static_assert(std::invocable<SomeFn, T&>,
+                  "Optional::match: someFn must be invocable with T&");
+    static_assert(std::invocable<NoneFn>,
+                  "Optional::match: noneFn must be invocable with no arguments");
+    static_assert(
+        std::same_as<std::invoke_result_t<SomeFn, T&>,
+                     std::invoke_result_t<NoneFn>>,
+        "Optional::match: someFn and noneFn must return the same type");
+    if (isSome()) {
+      return std::invoke(std::forward<SomeFn>(someFn), std::get<1>(value_));
+    }
+    return std::invoke(std::forward<NoneFn>(noneFn));
+  }
+
+  /**
+   * @brief Applies one of two functions depending on whether this Optional is Some or None.
+   * @tparam SomeFn Callable invocable with T&& (rvalue value).
+   * @tparam NoneFn Callable invocable with no arguments.
+   */
+  template <typename SomeFn, typename NoneFn>
+  auto match(SomeFn&& someFn, NoneFn&& noneFn) && {
+    static_assert(std::invocable<SomeFn, T&&>,
+                  "Optional::match: someFn must be invocable with T&&");
+    static_assert(std::invocable<NoneFn>,
+                  "Optional::match: noneFn must be invocable with no arguments");
+    static_assert(
+        std::same_as<std::invoke_result_t<SomeFn, T&&>,
+                     std::invoke_result_t<NoneFn>>,
+        "Optional::match: someFn and noneFn must return the same type");
+    if (isSome()) {
+      return std::invoke(std::forward<SomeFn>(someFn), std::get<1>(std::move(value_)));
+    }
+    return std::invoke(std::forward<NoneFn>(noneFn));
+  }
+
+  /**
+   * @brief Applies one of two functions depending on whether this Optional is Some or None.
+   * @tparam SomeFn Callable invocable with const T& (const lvalue value).
+   * @tparam NoneFn Callable invocable with no arguments.
+   */
+  template <typename SomeFn, typename NoneFn>
+  auto match(SomeFn&& someFn, NoneFn&& noneFn) const& {
+    static_assert(std::invocable<SomeFn, const T&>,
+                  "Optional::match: someFn must be invocable with const T&");
+    static_assert(std::invocable<NoneFn>,
+                  "Optional::match: noneFn must be invocable with no arguments");
+    static_assert(
+        std::same_as<std::invoke_result_t<SomeFn, const T&>,
+                     std::invoke_result_t<NoneFn>>,
+        "Optional::match: someFn and noneFn must return the same type");
+    if (isSome()) {
+      return std::invoke(std::forward<SomeFn>(someFn), std::get<1>(value_));
+    }
+    return std::invoke(std::forward<NoneFn>(noneFn));
+  }
+
+  /**
    * @brief Executes a provided function with the value if it's Some.
    * @tparam F The type of the function.
    * @param func The function to execute.

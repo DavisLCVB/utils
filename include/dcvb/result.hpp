@@ -306,6 +306,74 @@ class Result {
   }
 
   /**
+   * @brief Applies one of two functions depending on whether this Result is Ok or Err.
+   *
+   * Both functions must return the same type. Use this to collapse a Result into
+   * a single value without needing to check isOk() manually.
+   *
+   * @tparam OkFn  Callable invocable with T& (lvalue Ok value).
+   * @tparam ErrFn Callable invocable with E& (lvalue Err value).
+   * @return The return value of whichever function was invoked.
+   */
+  template <typename OkFn, typename ErrFn>
+  auto match(OkFn&& okFn, ErrFn&& errFn) & {
+    static_assert(std::invocable<OkFn, T&>,
+                  "Result::match: okFn must be invocable with T&");
+    static_assert(std::invocable<ErrFn, E&>,
+                  "Result::match: errFn must be invocable with E&");
+    static_assert(
+        std::same_as<std::invoke_result_t<OkFn, T&>,
+                     std::invoke_result_t<ErrFn, E&>>,
+        "Result::match: okFn and errFn must return the same type");
+    if (isOk()) {
+      return std::invoke(std::forward<OkFn>(okFn), std::get<0>(value_));
+    }
+    return std::invoke(std::forward<ErrFn>(errFn), std::get<1>(value_));
+  }
+
+  /**
+   * @brief Applies one of two functions depending on whether this Result is Ok or Err.
+   * @tparam OkFn  Callable invocable with T&& (rvalue Ok value).
+   * @tparam ErrFn Callable invocable with E&& (rvalue Err value).
+   */
+  template <typename OkFn, typename ErrFn>
+  auto match(OkFn&& okFn, ErrFn&& errFn) && {
+    static_assert(std::invocable<OkFn, T&&>,
+                  "Result::match: okFn must be invocable with T&&");
+    static_assert(std::invocable<ErrFn, E&&>,
+                  "Result::match: errFn must be invocable with E&&");
+    static_assert(
+        std::same_as<std::invoke_result_t<OkFn, T&&>,
+                     std::invoke_result_t<ErrFn, E&&>>,
+        "Result::match: okFn and errFn must return the same type");
+    if (isOk()) {
+      return std::invoke(std::forward<OkFn>(okFn), std::get<0>(std::move(value_)));
+    }
+    return std::invoke(std::forward<ErrFn>(errFn), std::get<1>(std::move(value_)));
+  }
+
+  /**
+   * @brief Applies one of two functions depending on whether this Result is Ok or Err.
+   * @tparam OkFn  Callable invocable with const T& (const lvalue Ok value).
+   * @tparam ErrFn Callable invocable with const E& (const lvalue Err value).
+   */
+  template <typename OkFn, typename ErrFn>
+  auto match(OkFn&& okFn, ErrFn&& errFn) const& {
+    static_assert(std::invocable<OkFn, const T&>,
+                  "Result::match: okFn must be invocable with const T&");
+    static_assert(std::invocable<ErrFn, const E&>,
+                  "Result::match: errFn must be invocable with const E&");
+    static_assert(
+        std::same_as<std::invoke_result_t<OkFn, const T&>,
+                     std::invoke_result_t<ErrFn, const E&>>,
+        "Result::match: okFn and errFn must return the same type");
+    if (isOk()) {
+      return std::invoke(std::forward<OkFn>(okFn), std::get<0>(value_));
+    }
+    return std::invoke(std::forward<ErrFn>(errFn), std::get<1>(value_));
+  }
+
+  /**
    * @brief Returns the success value if it's an Ok, or a provided default value if it's an Err.
    * @tparam U The type of the default value, which must be convertible to T.
    * @param defaultValue The default value to return if this Result is an Err.
@@ -749,6 +817,73 @@ class Result<void, E> {
       return std::invoke(std::forward<F>(func));
     }
     return RetType(Err<E>{std::get<1>(std::move(value_))});
+  }
+
+  /**
+   * @brief Applies one of two functions depending on whether this Result is Ok or Err.
+   *
+   * OkFn is invoked with no arguments (since the Ok value is void).
+   * ErrFn is invoked with the Err value. Both must return the same type.
+   *
+   * @tparam OkFn  Callable invocable with no arguments.
+   * @tparam ErrFn Callable invocable with E& (lvalue Err value).
+   */
+  template <typename OkFn, typename ErrFn>
+  auto match(OkFn&& okFn, ErrFn&& errFn) & {
+    static_assert(std::invocable<OkFn>,
+                  "Result<void,E>::match: okFn must be invocable with no arguments");
+    static_assert(std::invocable<ErrFn, E&>,
+                  "Result<void,E>::match: errFn must be invocable with E&");
+    static_assert(
+        std::same_as<std::invoke_result_t<OkFn>,
+                     std::invoke_result_t<ErrFn, E&>>,
+        "Result<void,E>::match: okFn and errFn must return the same type");
+    if (isOk()) {
+      return std::invoke(std::forward<OkFn>(okFn));
+    }
+    return std::invoke(std::forward<ErrFn>(errFn), std::get<1>(value_));
+  }
+
+  /**
+   * @brief Applies one of two functions depending on whether this Result is Ok or Err.
+   * @tparam OkFn  Callable invocable with no arguments.
+   * @tparam ErrFn Callable invocable with E&& (rvalue Err value).
+   */
+  template <typename OkFn, typename ErrFn>
+  auto match(OkFn&& okFn, ErrFn&& errFn) && {
+    static_assert(std::invocable<OkFn>,
+                  "Result<void,E>::match: okFn must be invocable with no arguments");
+    static_assert(std::invocable<ErrFn, E&&>,
+                  "Result<void,E>::match: errFn must be invocable with E&&");
+    static_assert(
+        std::same_as<std::invoke_result_t<OkFn>,
+                     std::invoke_result_t<ErrFn, E&&>>,
+        "Result<void,E>::match: okFn and errFn must return the same type");
+    if (isOk()) {
+      return std::invoke(std::forward<OkFn>(okFn));
+    }
+    return std::invoke(std::forward<ErrFn>(errFn), std::get<1>(std::move(value_)));
+  }
+
+  /**
+   * @brief Applies one of two functions depending on whether this Result is Ok or Err.
+   * @tparam OkFn  Callable invocable with no arguments.
+   * @tparam ErrFn Callable invocable with const E& (const lvalue Err value).
+   */
+  template <typename OkFn, typename ErrFn>
+  auto match(OkFn&& okFn, ErrFn&& errFn) const& {
+    static_assert(std::invocable<OkFn>,
+                  "Result<void,E>::match: okFn must be invocable with no arguments");
+    static_assert(std::invocable<ErrFn, const E&>,
+                  "Result<void,E>::match: errFn must be invocable with const E&");
+    static_assert(
+        std::same_as<std::invoke_result_t<OkFn>,
+                     std::invoke_result_t<ErrFn, const E&>>,
+        "Result<void,E>::match: okFn and errFn must return the same type");
+    if (isOk()) {
+      return std::invoke(std::forward<OkFn>(okFn));
+    }
+    return std::invoke(std::forward<ErrFn>(errFn), std::get<1>(value_));
   }
 
   /**
