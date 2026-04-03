@@ -1,5 +1,6 @@
 #include <cassert>
 #include <dcvb/error.hpp>
+#include <dcvb/format.hpp>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -93,6 +94,54 @@ void testErrHelper() {
   std::cout << "testErrHelper passed" << '\n';
 }
 
+void testFormat() {
+#ifdef DCVB_HAS_STD_FORMAT
+  Error err("Format test");
+  std::string defaultFormat = std::format("{}", err);
+  assert(defaultFormat == "[Generic:unknown error code: 0] Format test");
+
+  std::string verboseFormat = std::format("{:v}", err);
+  assert(verboseFormat.find("[Generic:unknown error code: 0] Format test") != std::string::npos);
+  assert(verboseFormat.find("test-error.cpp:") != std::string::npos);
+  std::cout << "testFormat passed" << '\n';
+#else
+  std::cout << "testFormat skipped (std::format not available)" << '\n';
+#endif
+}
+
+void testWithContext() {
+  Error base("file not found");
+
+  // withContext prepends context to the message
+  auto ctx = base.withContext("loading config");
+  assert(ctx.message() == "loading config: file not found");
+
+  // domain and code are preserved
+  assert(ctx.domain() == GenericDomain::get());
+  assert(ctx.code() == 0);
+
+  // location is preserved from original
+  assert(ctx.location().line() == base.location().line());
+
+  // toString reflects the new message
+  std::string str = ctx.toString();
+  assert(str.find("loading config: file not found") != std::string::npos);
+
+  // chaining: withContext on withContext prepends further
+  auto nested = base.withContext("outer").withContext("inner");
+  assert(nested.message() == "inner: outer: file not found");
+
+  // works with custom domain
+  CustomDomain custom;
+  Error domErr(custom, 1, "disk error");
+  auto domCtx = domErr.withContext("reading file");
+  assert(domCtx.domain() == custom);
+  assert(domCtx.code() == 1);
+  assert(domCtx.message() == "reading file: disk error");
+
+  std::cout << "testWithContext passed" << '\n';
+}
+
 auto main() -> int {
   try {
     testGenericDomain();
@@ -102,6 +151,8 @@ auto main() -> int {
     testErrorToString();
     testErrorStream();
     testErrHelper();
+    testFormat();
+    testWithContext();
 
     std::cout << "All tests passed successfully!" << '\n';
   } catch (const std::exception& e) {

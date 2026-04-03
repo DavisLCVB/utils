@@ -314,6 +314,34 @@ class Optional {
   }
 
   /**
+   * @brief Flattens an Optional<Optional<T>> into an Optional<T>.
+   *        Only available when T is itself an Optional.
+   *        If the outer Optional is None, returns None.
+   *        If the outer Optional is Some, returns the inner Optional as-is.
+   */
+  [[nodiscard]] auto flatten() const& -> T
+      requires requires {
+        typename T::ValueType;
+        { T(None{}) };
+      } {
+    if (isNone()) {
+      return T(None{});
+    }
+    return std::get<1>(value_);
+  }
+
+  [[nodiscard]] auto flatten() && -> T
+      requires requires {
+        typename T::ValueType;
+        { T(None{}) };
+      } {
+    if (isNone()) {
+      return T(None{});
+    }
+    return std::get<1>(std::move(value_));
+  }
+
+  /**
    * @brief Applies one of two functions depending on whether this Optional is Some or None.
    *
    * Both functions must return the same type. Use this to collapse an Optional

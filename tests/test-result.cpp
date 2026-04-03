@@ -1,8 +1,12 @@
 #include <cassert>
 #include <dcvb/result.hpp>
+#define DCVB_USE_SHORT_MACROS
+#include <dcvb/assign_or_return.hpp>
+#include <dcvb/format.hpp>
 #include <iostream>
 #include <memory>
 #include <string>
+#include <vector>
 
 using namespace dcvb;
 
@@ -202,6 +206,175 @@ void testHelpers() {
   std::cout << "testHelpers passed\n";
 }
 
+auto helperSuccess() -> Result<int, std::string> {
+  return ok<int, std::string>(100);
+}
+
+auto helperFailure() -> Result<int, std::string> {
+  return err<int, std::string>("failed");
+}
+
+auto functionUsingMacroSuccess() -> Result<int, std::string> {
+  DCVB_ASSIGN_OR_RETURN(auto val, helperSuccess());
+  return ok<int, std::string>(val * 2);
+}
+
+auto functionUsingMacroFailure() -> Result<int, std::string> {
+  DCVB_ASSIGN_OR_RETURN(auto val, helperFailure());
+  return ok<int, std::string>(val * 2); // Should not be reached
+}
+
+auto functionUsingShortMacroSuccess() -> Result<int, std::string> {
+  AOR(auto val, helperSuccess());
+  return ok<int, std::string>(val * 2);
+}
+
+void testAssignOrReturn() {
+  auto resSuccess = functionUsingMacroSuccess();
+  assert(resSuccess.isOk());
+  assert(resSuccess.unwrap() == 200);
+
+  auto resShortSuccess = functionUsingShortMacroSuccess();
+  assert(resShortSuccess.isOk());
+  assert(resShortSuccess.unwrap() == 200);
+
+  auto resFailure = functionUsingMacroFailure();
+  assert(resFailure.isErr());
+  assert(resFailure.unwrapErr() == "failed");
+
+  std::cout << "testAssignOrReturn passed\n";
+}
+
+void testFormatResult() {
+#ifdef DCVB_HAS_STD_FORMAT
+  Result<int, std::string> resOk = Ok<int>{42};
+  assert(std::format("{}", resOk) == "Ok(42)");
+
+  Result<int, std::string> resErr = Err<std::string>{"error"};
+  assert(std::format("{}", resErr) == "Err(error)");
+
+  Result<void, int> resVoidOk = Ok<void>{};
+  assert(std::format("{}", resVoidOk) == "Ok()");
+
+  Result<void, Error> resErrorErr = Err<Error>{Error("Something failed")};
+  std::string formattedErr = std::format("{:v}", resErrorErr);
+  assert(formattedErr.find("Err([Generic:unknown error code: 0] Something failed") != std::string::npos);
+  assert(formattedErr.find("test-result.cpp:") != std::string::npos);
+
+  std::cout << "testFormatResult passed\n";
+#else
+  std::cout << "testFormatResult skipped (std::format not available)\n";
+#endif
+}
+
+void testOrElse() {
+  // orElse on Err invokes recovery function
+  Result<int, std::string> errRes = Err<std::string>{"not found"};
+  auto recovered = errRes.orElse([](const std::string&) -> Result<int, std::string> {
+    return ok<int, std::string>(0);
+  });
+  assert(recovered.isOk());
+  assert(recovered.unwrap() == 0);
+
+  // orElse on Ok does NOT invoke function, propagates Ok
+  int called = 0;
+  Result<int, std::string> okRes = Ok<int>{42};
+  auto kept = okRes.orElse([&called](const std::string&) -> Result<int, std::string> {
+    called++;
+    return ok<int, std::string>(0);
+  });
+  assert(kept.isOk());
+  assert(kept.unwrap() == 42);
+  assert(called == 0);
+
+  // orElse can change the error type
+  Result<int, int> numErr = Err<int>{404};
+  auto strErr = numErr.orElse([](int code) -> Result<int, std::string> {
+    return err<int, std::string>("code: " + std::to_string(code));
+  });
+  assert(strErr.isErr());
+  assert(strErr.unwrapErr() == "code: 404");
+
+  // chaining orElse
+  Result<int, std::string> chained = Err<std::string>{"first"};
+  auto result = std::move(chained)
+    .orElse([](std::string) -> Result<int, std::string> {
+      return Err<std::string>{"second"};
+    })
+    .orElse([](std::string) -> Result<int, std::string> {
+      return ok<int, std::string>(99);
+    });
+  assert(result.isOk());
+  assert(result.unwrap() == 99);
+
+  // orElse on Result<void, E>
+  Result<void, std::string> voidErr = Err<std::string>{"fail"};
+  auto voidRecovered = std::move(voidErr).orElse(
+      [](std::string) -> Result<void, std::string> {
+        return ok<void, std::string>();
+      });
+  assert(voidRecovered.isOk());
+
+  Result<void, std::string> voidOk = Ok<void>{};
+  int voidCalled = 0;
+  auto voidKept = std::move(voidOk).orElse(
+      [&voidCalled](std::string) -> Result<void, std::string> {
+        voidCalled++;
+        return ok<void, std::string>();
+      });
+  assert(voidKept.isOk());
+  assert(voidCalled == 0);
+
+  std::cout << "testOrElse passed\n";
+}
+
+auto voidHelperOk() -> Result<void, std::string> {
+  return ok<void, std::string>();
+}
+
+auto voidHelperErr() -> Result<void, std::string> {
+  return err<void, std::string>("void failed");
+}
+
+auto functionUsingOrReturnSuccess() -> Result<void, std::string> {
+  DCVB_OR_RETURN(voidHelperOk());
+  DCVB_OR_RETURN(voidHelperOk());
+  return ok<void, std::string>();
+}
+
+auto functionUsingOrReturnFailure() -> Result<void, std::string> {
+  DCVB_OR_RETURN(voidHelperErr());
+  return ok<void, std::string>();  // Should not be reached
+}
+
+auto functionUsingOorAlias() -> Result<void, std::string> {
+  OOR(voidHelperOk());
+  return ok<void, std::string>();
+}
+
+auto functionOrReturnWithNonVoid() -> Result<void, std::string> {
+  // DCVB_OR_RETURN also works for non-void Result (Ok value discarded)
+  DCVB_OR_RETURN(helperSuccess());
+  return ok<void, std::string>();
+}
+
+void testOrReturn() {
+  auto resSuccess = functionUsingOrReturnSuccess();
+  assert(resSuccess.isOk());
+
+  auto resFailure = functionUsingOrReturnFailure();
+  assert(resFailure.isErr());
+  assert(resFailure.unwrapErr() == "void failed");
+
+  auto resAlias = functionUsingOorAlias();
+  assert(resAlias.isOk());
+
+  auto resNonVoid = functionOrReturnWithNonVoid();
+  assert(resNonVoid.isOk());
+
+  std::cout << "testOrReturn passed\n";
+}
+
 auto main() -> int {
   try {
     testSimpleOk();
@@ -215,6 +388,10 @@ auto main() -> int {
     testComplexChaining();
     testAsExpected();
     testHelpers();
+    testAssignOrReturn();
+    testFormatResult();
+    testOrElse();
+    testOrReturn();
 
     std::cout << "All tests passed successfully!\n";
   } catch (const std::exception& e) {

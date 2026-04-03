@@ -175,6 +175,16 @@ class Error {
   }
 
   /**
+   * @brief Returns a new Error with additional context prepended to the message.
+   *        Use when wrapping errors across layers to describe the operation that failed.
+   * @param ctx Description of the operation that was in progress when the error occurred.
+   * @return A new Error with the same domain and code, with context prepended as "ctx: message".
+   */
+  [[nodiscard]] auto withContext(std::string_view ctx) const -> Error {
+    return Error(*domain_, code_, std::string(ctx) + ": " + message_, location_);
+  }
+
+  /**
    * @brief Stream operator for easy printing of Error objects.
    * @param os The output stream.
    * @param error The Error object to print.

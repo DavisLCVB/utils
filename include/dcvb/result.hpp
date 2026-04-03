@@ -1,8 +1,8 @@
 #ifndef DCVB_RESULT_HPP
 #define DCVB_RESULT_HPP
 
-#include <dcvb/exception.hpp>
 #include <concepts>
+#include <dcvb/exception.hpp>
 #include <functional>
 #include <source_location>
 #include <string>
@@ -99,10 +99,9 @@ class Result {
       std::source_location loc = std::source_location::current()) & -> T& {
     if (isErr()) {
       if constexpr (detail::HasToString<E>) {
-        throw Exception(
-            "dcvb::Result - Called unwrap on an Err value: " +
-                std::get<1>(value_).toString(),
-            loc);
+        throw Exception("dcvb::Result - Called unwrap on an Err value: " +
+                            std::get<1>(value_).toString(),
+                        loc);
       } else {
         throw Exception("dcvb::Result - Called unwrap on an Err value", loc);
       }
@@ -119,10 +118,9 @@ class Result {
       std::source_location loc = std::source_location::current()) && -> T&& {
     if (isErr()) {
       if constexpr (detail::HasToString<E>) {
-        throw Exception(
-            "dcvb::Result - Called unwrap on an Err value: " +
-                std::get<1>(value_).toString(),
-            loc);
+        throw Exception("dcvb::Result - Called unwrap on an Err value: " +
+                            std::get<1>(value_).toString(),
+                        loc);
       } else {
         throw Exception("dcvb::Result - Called unwrap on an Err value", loc);
       }
@@ -140,10 +138,9 @@ class Result {
           std::source_location::current()) const& -> const T& {
     if (isErr()) {
       if constexpr (detail::HasToString<E>) {
-        throw Exception(
-            "dcvb::Result - Called unwrap on an Err value: " +
-                std::get<1>(value_).toString(),
-            loc);
+        throw Exception("dcvb::Result - Called unwrap on an Err value: " +
+                            std::get<1>(value_).toString(),
+                        loc);
       } else {
         throw Exception("dcvb::Result - Called unwrap on an Err value", loc);
       }
@@ -306,6 +303,64 @@ class Result {
   }
 
   /**
+   * @brief Chains a recovery function to be called if this Result is Err.
+   *        If this Result is Ok, the value is propagated without calling the function.
+   * @tparam F The type of the recovery function. Must return Result<T, F2>.
+   * @param func The recovery function to apply to the error value.
+   * @return The Result returned by the recovery function, or this Ok value.
+   */
+  template <typename F>
+  [[nodiscard]] auto orElse(F&& func) & {
+    using RetType = std::invoke_result_t<F, E&>;
+    if (isErr()) {
+      return std::invoke(std::forward<F>(func), std::get<1>(value_));
+    }
+    return RetType(Ok<T>{std::get<0>(value_)});
+  }
+
+  template <typename F>
+  [[nodiscard]] auto orElse(F&& func) && {
+    using RetType = std::invoke_result_t<F, E&&>;
+    if (isErr()) {
+      return std::invoke(std::forward<F>(func), std::get<1>(std::move(value_)));
+    }
+    return RetType(Ok<T>{std::get<0>(std::move(value_))});
+  }
+
+  template <typename F>
+  [[nodiscard]] auto orElse(F&& func) const& {
+    using RetType = std::invoke_result_t<F, const E&>;
+    if (isErr()) {
+      return std::invoke(std::forward<F>(func), std::get<1>(value_));
+    }
+    return RetType(Ok<T>{std::get<0>(value_)});
+  }
+
+  /**
+   * @brief Flattens a Result<Result<T,E>,E> into a Result<T,E>.
+   *        Only available when T is itself a Result with the same error type E.
+   *        If the outer Result is Err, returns that Err.
+   *        If the outer Result is Ok, returns the inner Result as-is.
+   */
+  [[nodiscard]] auto flatten() const& -> T
+      requires(requires { typename T::ErrorType; } &&
+               std::same_as<typename T::ErrorType, E>) {
+    if (isErr()) {
+      return T(Err<E>{std::get<1>(value_)});
+    }
+    return std::get<0>(value_);
+  }
+
+  [[nodiscard]] auto flatten() && -> T
+      requires(requires { typename T::ErrorType; } &&
+               std::same_as<typename T::ErrorType, E>) {
+    if (isErr()) {
+      return T(Err<E>{std::get<1>(std::move(value_))});
+    }
+    return std::get<0>(std::move(value_));
+  }
+
+  /**
    * @brief Applies one of two functions depending on whether this Result is Ok or Err.
    *
    * Both functions must return the same type. Use this to collapse a Result into
@@ -321,10 +376,9 @@ class Result {
                   "Result::match: okFn must be invocable with T&");
     static_assert(std::invocable<ErrFn, E&>,
                   "Result::match: errFn must be invocable with E&");
-    static_assert(
-        std::same_as<std::invoke_result_t<OkFn, T&>,
-                     std::invoke_result_t<ErrFn, E&>>,
-        "Result::match: okFn and errFn must return the same type");
+    static_assert(std::same_as<std::invoke_result_t<OkFn, T&>,
+                               std::invoke_result_t<ErrFn, E&>>,
+                  "Result::match: okFn and errFn must return the same type");
     if (isOk()) {
       return std::invoke(std::forward<OkFn>(okFn), std::get<0>(value_));
     }
@@ -342,14 +396,15 @@ class Result {
                   "Result::match: okFn must be invocable with T&&");
     static_assert(std::invocable<ErrFn, E&&>,
                   "Result::match: errFn must be invocable with E&&");
-    static_assert(
-        std::same_as<std::invoke_result_t<OkFn, T&&>,
-                     std::invoke_result_t<ErrFn, E&&>>,
-        "Result::match: okFn and errFn must return the same type");
+    static_assert(std::same_as<std::invoke_result_t<OkFn, T&&>,
+                               std::invoke_result_t<ErrFn, E&&>>,
+                  "Result::match: okFn and errFn must return the same type");
     if (isOk()) {
-      return std::invoke(std::forward<OkFn>(okFn), std::get<0>(std::move(value_)));
+      return std::invoke(std::forward<OkFn>(okFn),
+                         std::get<0>(std::move(value_)));
     }
-    return std::invoke(std::forward<ErrFn>(errFn), std::get<1>(std::move(value_)));
+    return std::invoke(std::forward<ErrFn>(errFn),
+                       std::get<1>(std::move(value_)));
   }
 
   /**
@@ -363,10 +418,9 @@ class Result {
                   "Result::match: okFn must be invocable with const T&");
     static_assert(std::invocable<ErrFn, const E&>,
                   "Result::match: errFn must be invocable with const E&");
-    static_assert(
-        std::same_as<std::invoke_result_t<OkFn, const T&>,
-                     std::invoke_result_t<ErrFn, const E&>>,
-        "Result::match: okFn and errFn must return the same type");
+    static_assert(std::same_as<std::invoke_result_t<OkFn, const T&>,
+                               std::invoke_result_t<ErrFn, const E&>>,
+                  "Result::match: okFn and errFn must return the same type");
     if (isOk()) {
       return std::invoke(std::forward<OkFn>(okFn), std::get<0>(value_));
     }
@@ -537,7 +591,8 @@ class Result {
    * @return An Err<E> struct that implicitly converts to any Result<U, E>.
    */
   [[nodiscard]] auto propagate(
-      std::source_location loc = std::source_location::current()) const& -> Err<E> {
+      std::source_location loc =
+          std::source_location::current()) const& -> Err<E> {
     if (isOk()) {
       throw Exception("dcvb::Result - Called propagate on an Ok value", loc);
     }
@@ -640,8 +695,8 @@ class Result<void, E> {
    * @return void if the Result is Ok.
    * @throws dcvb::Exception if the Result is an Err.
    */
-  auto unwrap(
-      std::source_location loc = std::source_location::current()) const -> void {
+  auto unwrap(std::source_location loc = std::source_location::current()) const
+      -> void {
     if (isErr()) {
       throw Exception("dcvb::Result - Called unwrap on an Err value", loc);
     }
@@ -820,6 +875,40 @@ class Result<void, E> {
   }
 
   /**
+   * @brief Chains a recovery function to be called if this Result is Err.
+   *        If this Result is Ok (void), Ok<void>{} is propagated without calling the function.
+   * @tparam F The type of the recovery function. Must return Result<void, F2>.
+   * @param func The recovery function to apply to the error value.
+   * @return The Result returned by the recovery function, or Ok<void>{}.
+   */
+  template <typename F>
+  [[nodiscard]] auto orElse(F&& func) & {
+    using RetType = std::invoke_result_t<F, E&>;
+    if (isErr()) {
+      return std::invoke(std::forward<F>(func), std::get<1>(value_));
+    }
+    return RetType(Ok<void>{});
+  }
+
+  template <typename F>
+  [[nodiscard]] auto orElse(F&& func) && {
+    using RetType = std::invoke_result_t<F, E&&>;
+    if (isErr()) {
+      return std::invoke(std::forward<F>(func), std::get<1>(std::move(value_)));
+    }
+    return RetType(Ok<void>{});
+  }
+
+  template <typename F>
+  [[nodiscard]] auto orElse(F&& func) const& {
+    using RetType = std::invoke_result_t<F, const E&>;
+    if (isErr()) {
+      return std::invoke(std::forward<F>(func), std::get<1>(value_));
+    }
+    return RetType(Ok<void>{});
+  }
+
+  /**
    * @brief Applies one of two functions depending on whether this Result is Ok or Err.
    *
    * OkFn is invoked with no arguments (since the Ok value is void).
@@ -830,8 +919,9 @@ class Result<void, E> {
    */
   template <typename OkFn, typename ErrFn>
   auto match(OkFn&& okFn, ErrFn&& errFn) & {
-    static_assert(std::invocable<OkFn>,
-                  "Result<void,E>::match: okFn must be invocable with no arguments");
+    static_assert(
+        std::invocable<OkFn>,
+        "Result<void,E>::match: okFn must be invocable with no arguments");
     static_assert(std::invocable<ErrFn, E&>,
                   "Result<void,E>::match: errFn must be invocable with E&");
     static_assert(
@@ -851,8 +941,9 @@ class Result<void, E> {
    */
   template <typename OkFn, typename ErrFn>
   auto match(OkFn&& okFn, ErrFn&& errFn) && {
-    static_assert(std::invocable<OkFn>,
-                  "Result<void,E>::match: okFn must be invocable with no arguments");
+    static_assert(
+        std::invocable<OkFn>,
+        "Result<void,E>::match: okFn must be invocable with no arguments");
     static_assert(std::invocable<ErrFn, E&&>,
                   "Result<void,E>::match: errFn must be invocable with E&&");
     static_assert(
@@ -862,7 +953,8 @@ class Result<void, E> {
     if (isOk()) {
       return std::invoke(std::forward<OkFn>(okFn));
     }
-    return std::invoke(std::forward<ErrFn>(errFn), std::get<1>(std::move(value_)));
+    return std::invoke(std::forward<ErrFn>(errFn),
+                       std::get<1>(std::move(value_)));
   }
 
   /**
@@ -872,10 +964,12 @@ class Result<void, E> {
    */
   template <typename OkFn, typename ErrFn>
   auto match(OkFn&& okFn, ErrFn&& errFn) const& {
-    static_assert(std::invocable<OkFn>,
-                  "Result<void,E>::match: okFn must be invocable with no arguments");
-    static_assert(std::invocable<ErrFn, const E&>,
-                  "Result<void,E>::match: errFn must be invocable with const E&");
+    static_assert(
+        std::invocable<OkFn>,
+        "Result<void,E>::match: okFn must be invocable with no arguments");
+    static_assert(
+        std::invocable<ErrFn, const E&>,
+        "Result<void,E>::match: errFn must be invocable with const E&");
     static_assert(
         std::same_as<std::invoke_result_t<OkFn>,
                      std::invoke_result_t<ErrFn, const E&>>,
@@ -976,16 +1070,17 @@ class Result<void, E> {
    * @return void if the Result is Ok.
    * @throws dcvb::Exception with the provided message if the Result is an Err.
    */
-  constexpr auto expect(
-      std::string_view msg,
-      std::source_location loc = std::source_location::current()) const -> void {
+  constexpr auto expect(std::string_view msg,
+                        std::source_location loc =
+                            std::source_location::current()) const -> void {
     if (isErr()) {
       throw Exception(std::string(msg), loc);
     }
   }
 
   constexpr auto propagate(
-      std::source_location loc = std::source_location::current()) const& -> Err<E> {
+      std::source_location loc =
+          std::source_location::current()) const& -> Err<E> {
     if (isOk()) {
       throw Exception("dcvb::Result - Called propagate on an Ok value", loc);
     }
