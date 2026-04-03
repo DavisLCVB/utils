@@ -1,9 +1,10 @@
 #ifndef DCVB_RESULT_HPP
 #define DCVB_RESULT_HPP
 
+#include <dcvb/exception.hpp>
 #include <concepts>
 #include <functional>
-#include <stdexcept>
+#include <source_location>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -92,11 +93,19 @@ class Result {
   /**
    * @brief Unwraps the Result to get the success value. Throws if it's an Err.
    * @return The success value if the Result is Ok.
-   * @throws std::runtime_error if the Result is an Err.
+   * @throws dcvb::Exception if the Result is an Err.
    */
-  [[nodiscard]] auto unwrap() & -> T& {
+  [[nodiscard]] auto unwrap(
+      std::source_location loc = std::source_location::current()) & -> T& {
     if (isErr()) {
-      throw std::runtime_error("dcvb::Result - Called unwrap on an Err value");
+      if constexpr (detail::HasToString<E>) {
+        throw Exception(
+            "dcvb::Result - Called unwrap on an Err value: " +
+                std::get<1>(value_).toString(),
+            loc);
+      } else {
+        throw Exception("dcvb::Result - Called unwrap on an Err value", loc);
+      }
     }
     return std::get<0>(value_);
   }
@@ -104,11 +113,19 @@ class Result {
   /**
    * @brief Unwraps the Result to get the success value. Throws if it's an Err.
    * @return The success value if the Result is Ok.
-   * @throws std::runtime_error if the Result is an Err.
+   * @throws dcvb::Exception if the Result is an Err.
    */
-  [[nodiscard]] auto unwrap() && -> T&& {
+  [[nodiscard]] auto unwrap(
+      std::source_location loc = std::source_location::current()) && -> T&& {
     if (isErr()) {
-      throw std::runtime_error("dcvb::Result - Called unwrap on an Err value");
+      if constexpr (detail::HasToString<E>) {
+        throw Exception(
+            "dcvb::Result - Called unwrap on an Err value: " +
+                std::get<1>(value_).toString(),
+            loc);
+      } else {
+        throw Exception("dcvb::Result - Called unwrap on an Err value", loc);
+      }
     }
     return std::get<0>(std::move(value_));
   }
@@ -116,11 +133,20 @@ class Result {
   /**
    * @brief Unwraps the Result to get the success value. Throws if it's an Err.
    * @return The success value if the Result is Ok.
-   * @throws std::runtime_error if the Result is an Err.
+   * @throws dcvb::Exception if the Result is an Err.
    */
-  [[nodiscard]] auto unwrap() const& -> const T& {
+  [[nodiscard]] auto unwrap(
+      std::source_location loc =
+          std::source_location::current()) const& -> const T& {
     if (isErr()) {
-      throw std::runtime_error("dcvb::Result - Called unwrap on an Err value");
+      if constexpr (detail::HasToString<E>) {
+        throw Exception(
+            "dcvb::Result - Called unwrap on an Err value: " +
+                std::get<1>(value_).toString(),
+            loc);
+      } else {
+        throw Exception("dcvb::Result - Called unwrap on an Err value", loc);
+      }
     }
     return std::get<0>(value_);
   }
@@ -128,12 +154,12 @@ class Result {
   /**
    * @brief Unwraps the Result to get the error value. Throws if it's an Ok.
    * @return The error value if the Result is Err.
-   * @throws std::runtime_error if the Result is an Ok.
+   * @throws dcvb::Exception if the Result is an Ok.
    */
-  [[nodiscard]] auto unwrapErr() & -> E {
+  [[nodiscard]] auto unwrapErr(
+      std::source_location loc = std::source_location::current()) & -> E {
     if (isOk()) {
-      throw std::runtime_error(
-          "dcvb::Result - Called unwrapErr on an Ok value");
+      throw Exception("dcvb::Result - Called unwrapErr on an Ok value", loc);
     }
     return std::get<1>(value_);
   }
@@ -141,12 +167,12 @@ class Result {
   /**
    * @brief Unwraps the Result to get the error value. Throws if it's an Ok.
    * @return The error value if the Result is Err.
-   * @throws std::runtime_error if the Result is an Ok.
+   * @throws dcvb::Exception if the Result is an Ok.
    */
-  [[nodiscard]] auto unwrapErr() && -> E&& {
+  [[nodiscard]] auto unwrapErr(
+      std::source_location loc = std::source_location::current()) && -> E&& {
     if (isOk()) {
-      throw std::runtime_error(
-          "dcvb::Result - Called unwrapErr on an Ok value");
+      throw Exception("dcvb::Result - Called unwrapErr on an Ok value", loc);
     }
     return std::get<1>(std::move(value_));
   }
@@ -154,12 +180,13 @@ class Result {
   /**
    * @brief Unwraps the Result to get the error value. Throws if it's an Ok.
    * @return The error value if the Result is Err.
-   * @throws std::runtime_error if the Result is an Ok.
+   * @throws dcvb::Exception if the Result is an Ok.
    */
-  [[nodiscard]] auto unwrapErr() const& -> const E& {
+  [[nodiscard]] auto unwrapErr(
+      std::source_location loc =
+          std::source_location::current()) const& -> const E& {
     if (isOk()) {
-      throw std::runtime_error(
-          "dcvb::Result - Called unwrapErr on an Ok value");
+      throw Exception("dcvb::Result - Called unwrapErr on an Ok value", loc);
     }
     return std::get<1>(value_);
   }
@@ -395,11 +422,13 @@ class Result {
    * @brief Unwraps the Result to get the success value, throwing a custom message if it's an Err.
    * @param msg The custom message to include in the exception if the Result is an Err.
    * @return The success value if the Result is Ok.
-   * @throws std::runtime_error with the provided message if the Result is an Err.
+   * @throws dcvb::Exception with the provided message if the Result is an Err.
    */
-  constexpr auto expect(std::string_view msg) & -> T& {
+  constexpr auto expect(
+      std::string_view msg,
+      std::source_location loc = std::source_location::current()) & -> T& {
     if (isErr()) {
-      throw std::runtime_error(std::string(msg));
+      throw Exception(std::string(msg), loc);
     }
     return std::get<0>(value_);
   }
@@ -408,11 +437,13 @@ class Result {
    * @brief Unwraps the Result to get the success value, throwing a custom message if it's an Err.
    * @param msg The custom message to include in the exception if the Result is an Err.
    * @return The success value if the Result is Ok.
-   * @throws std::runtime_error with the provided message if the Result is an Err.
+   * @throws dcvb::Exception with the provided message if the Result is an Err.
    */
-  constexpr auto expect(std::string_view msg) && -> T&& {
+  constexpr auto expect(
+      std::string_view msg,
+      std::source_location loc = std::source_location::current()) && -> T&& {
     if (isErr()) {
-      throw std::runtime_error(std::string(msg));
+      throw Exception(std::string(msg), loc);
     }
     return std::move(std::get<0>(value_));
   }
@@ -421,11 +452,14 @@ class Result {
    * @brief Unwraps the Result to get the success value, throwing a custom message if it's an Err.
    * @param msg The custom message to include in the exception if the Result is an Err.
    * @return The success value if the Result is Ok.
-   * @throws std::runtime_error with the provided message if the Result is an Err.
+   * @throws dcvb::Exception with the provided message if the Result is an Err.
    */
-  constexpr auto expect(std::string_view msg) const& -> const T& {
+  constexpr auto expect(
+      std::string_view msg,
+      std::source_location loc =
+          std::source_location::current()) const& -> const T& {
     if (isErr()) {
-      throw std::runtime_error(std::string(msg));
+      throw Exception(std::string(msg), loc);
     }
     return std::get<0>(value_);
   }
@@ -434,10 +468,10 @@ class Result {
    * @brief Extracts the error to propagate it to another Result type. Throws if Ok.
    * @return An Err<E> struct that implicitly converts to any Result<U, E>.
    */
-  [[nodiscard]] auto propagate() const& -> Err<E> {
+  [[nodiscard]] auto propagate(
+      std::source_location loc = std::source_location::current()) const& -> Err<E> {
     if (isOk()) {
-      throw std::runtime_error(
-          "dcvb::Result - Called propagate on an Ok value");
+      throw Exception("dcvb::Result - Called propagate on an Ok value", loc);
     }
     return Err<E>{std::get<1>(value_)};
   }
@@ -446,10 +480,10 @@ class Result {
    * @brief Extracts the error to propagate it to another Result type. Throws if Ok.
    * @return An Err<E> struct that implicitly converts to any Result<U, E>.
    */
-  [[nodiscard]] auto propagate() && -> Err<E> {
+  [[nodiscard]] auto propagate(
+      std::source_location loc = std::source_location::current()) && -> Err<E> {
     if (isOk()) {
-      throw std::runtime_error(
-          "dcvb::Result - Called propagate on an Ok value");
+      throw Exception("dcvb::Result - Called propagate on an Ok value", loc);
     }
     return Err<E>{std::get<1>(std::move(value_))};
   }
@@ -536,23 +570,24 @@ class Result<void, E> {
   /**
    * @brief Unwraps the Result to get the success value. Throws if it's an Err.
    * @return void if the Result is Ok.
-   * @throws std::runtime_error if the Result is an Err.
+   * @throws dcvb::Exception if the Result is an Err.
    */
-  auto unwrap() const -> void {
+  auto unwrap(
+      std::source_location loc = std::source_location::current()) const -> void {
     if (isErr()) {
-      throw std::runtime_error("dcvb::Result - Called unwrap on an Err value");
+      throw Exception("dcvb::Result - Called unwrap on an Err value", loc);
     }
   }
 
   /**
    * @brief Unwraps the Result to get the error value. Throws if it's an Ok.
    * @return The error value if the Result is Err.
-   * @throws std::runtime_error if the Result is an Ok.
+   * @throws dcvb::Exception if the Result is an Ok.
    */
-  [[nodiscard]] auto unwrapErr() & -> E& {
+  [[nodiscard]] auto unwrapErr(
+      std::source_location loc = std::source_location::current()) & -> E& {
     if (isOk()) {
-      throw std::runtime_error(
-          "dcvb::Result - Called unwrapErr on an Ok value");
+      throw Exception("dcvb::Result - Called unwrapErr on an Ok value", loc);
     }
     return std::get<1>(value_);
   }
@@ -560,12 +595,12 @@ class Result<void, E> {
   /**
    * @brief Unwraps the Result to get the error value. Throws if it's an Ok.
    * @return The error value if the Result is Err.
-   * @throws std::runtime_error if the Result is an Ok.
+   * @throws dcvb::Exception if the Result is an Ok.
    */
-  [[nodiscard]] auto unwrapErr() && -> E&& {
+  [[nodiscard]] auto unwrapErr(
+      std::source_location loc = std::source_location::current()) && -> E&& {
     if (isOk()) {
-      throw std::runtime_error(
-          "dcvb::Result - Called unwrapErr on an Ok value");
+      throw Exception("dcvb::Result - Called unwrapErr on an Ok value", loc);
     }
     return std::get<1>(std::move(value_));
   }
@@ -573,12 +608,13 @@ class Result<void, E> {
   /**
    * @brief Unwraps the Result to get the error value. Throws if it's an Ok.
    * @return The error value if the Result is Err.
-   * @throws std::runtime_error if the Result is an Ok.
+   * @throws dcvb::Exception if the Result is an Ok.
    */
-  [[nodiscard]] auto unwrapErr() const& -> const E& {
+  [[nodiscard]] auto unwrapErr(
+      std::source_location loc =
+          std::source_location::current()) const& -> const E& {
     if (isOk()) {
-      throw std::runtime_error(
-          "dcvb::Result - Called unwrapErr on an Ok value");
+      throw Exception("dcvb::Result - Called unwrapErr on an Ok value", loc);
     }
     return std::get<1>(value_);
   }
@@ -803,26 +839,28 @@ class Result<void, E> {
    * @brief Unwraps the Result to get the success value, throwing a custom message if it's an Err.
    * @param msg The custom message to include in the exception if the Result is an Err.
    * @return void if the Result is Ok.
-   * @throws std::runtime_error with the provided message if the Result is an Err.
+   * @throws dcvb::Exception with the provided message if the Result is an Err.
    */
-  constexpr auto expect(std::string_view msg) const -> void {
+  constexpr auto expect(
+      std::string_view msg,
+      std::source_location loc = std::source_location::current()) const -> void {
     if (isErr()) {
-      throw std::runtime_error(std::string(msg));
+      throw Exception(std::string(msg), loc);
     }
   }
 
-  constexpr auto propagate() const& -> Err<E> {
+  constexpr auto propagate(
+      std::source_location loc = std::source_location::current()) const& -> Err<E> {
     if (isOk()) {
-      throw std::runtime_error(
-          "dcvb::Result - Called propagate on an Ok value");
+      throw Exception("dcvb::Result - Called propagate on an Ok value", loc);
     }
     return Err<E>{std::get<1>(value_)};
   }
 
-  constexpr auto propagate() && -> Err<E> {
+  constexpr auto propagate(
+      std::source_location loc = std::source_location::current()) && -> Err<E> {
     if (isOk()) {
-      throw std::runtime_error(
-          "dcvb::Result - Called propagate on an Ok value");
+      throw Exception("dcvb::Result - Called propagate on an Ok value", loc);
     }
     return Err<E>{std::get<1>(std::move(value_))};
   }

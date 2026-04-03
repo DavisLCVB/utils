@@ -1,8 +1,9 @@
 #ifndef DCVB_OPTIONAL_HPP
 #define DCVB_OPTIONAL_HPP
 
+#include <dcvb/exception.hpp>
 #include <functional>
-#include <stdexcept>
+#include <source_location>
 #include <variant>
 
 #if __has_include(<optional>)
@@ -94,12 +95,12 @@ class Optional {
   /**
    * @brief Unwraps the Optional to get the value. Throws if it's None.
    * @return The value if it is Some.
-   * @throws std::runtime_error if it is None.
+   * @throws dcvb::Exception if it is None.
    */
-  [[nodiscard]] auto unwrap() & -> T& {
+  [[nodiscard]] auto unwrap(
+      std::source_location loc = std::source_location::current()) & -> T& {
     if (isNone()) {
-      throw std::runtime_error(
-          "dcvb::Optional - Called unwrap on a None value");
+      throw Exception("dcvb::Optional - Called unwrap on a None value", loc);
     }
     return std::get<1>(value_);
   }
@@ -107,12 +108,12 @@ class Optional {
   /**
    * @brief Unwraps the Optional to get the value. Throws if it's None.
    * @return The value if it is Some.
-   * @throws std::runtime_error if it is None.
+   * @throws dcvb::Exception if it is None.
    */
-  [[nodiscard]] auto unwrap() && -> T&& {
+  [[nodiscard]] auto unwrap(
+      std::source_location loc = std::source_location::current()) && -> T&& {
     if (isNone()) {
-      throw std::runtime_error(
-          "dcvb::Optional - Called unwrap on a None value");
+      throw Exception("dcvb::Optional - Called unwrap on a None value", loc);
     }
     return std::get<1>(std::move(value_));
   }
@@ -120,12 +121,59 @@ class Optional {
   /**
    * @brief Unwraps the Optional to get the value. Throws if it's None.
    * @return The value if it is Some.
-   * @throws std::runtime_error if it is None.
+   * @throws dcvb::Exception if it is None.
    */
-  [[nodiscard]] auto unwrap() const& -> const T& {
+  [[nodiscard]] auto unwrap(
+      std::source_location loc =
+          std::source_location::current()) const& -> const T& {
     if (isNone()) {
-      throw std::runtime_error(
-          "dcvb::Optional - Called unwrap on a None value");
+      throw Exception("dcvb::Optional - Called unwrap on a None value", loc);
+    }
+    return std::get<1>(value_);
+  }
+
+  /**
+   * @brief Unwraps the Optional to get the value, throwing a custom message if it's None.
+   * @param msg The custom message to include in the exception if this is None.
+   * @return The value if it is Some.
+   * @throws dcvb::Exception with the provided message if it is None.
+   */
+  [[nodiscard]] auto expect(
+      std::string_view msg,
+      std::source_location loc = std::source_location::current()) & -> T& {
+    if (isNone()) {
+      throw Exception(std::string(msg), loc);
+    }
+    return std::get<1>(value_);
+  }
+
+  /**
+   * @brief Unwraps the Optional to get the value, throwing a custom message if it's None.
+   * @param msg The custom message to include in the exception if this is None.
+   * @return The value if it is Some.
+   * @throws dcvb::Exception with the provided message if it is None.
+   */
+  [[nodiscard]] auto expect(
+      std::string_view msg,
+      std::source_location loc = std::source_location::current()) && -> T&& {
+    if (isNone()) {
+      throw Exception(std::string(msg), loc);
+    }
+    return std::get<1>(std::move(value_));
+  }
+
+  /**
+   * @brief Unwraps the Optional to get the value, throwing a custom message if it's None.
+   * @param msg The custom message to include in the exception if this is None.
+   * @return The value if it is Some.
+   * @throws dcvb::Exception with the provided message if it is None.
+   */
+  [[nodiscard]] auto expect(
+      std::string_view msg,
+      std::source_location loc =
+          std::source_location::current()) const& -> const T& {
+    if (isNone()) {
+      throw Exception(std::string(msg), loc);
     }
     return std::get<1>(value_);
   }
@@ -302,7 +350,7 @@ class Optional {
   template <typename F>
   auto inspect(F&& func) && -> Optional&& {
     if (isSome()) {
-      std::invoke(std::forward<F>(func), std::get<1>(std::get<1>(value_)));
+      std::invoke(std::forward<F>(func), std::get<1>(std::move(value_)));
     }
     return std::move(*this);
   }
